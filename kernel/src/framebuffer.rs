@@ -44,7 +44,10 @@ macro_rules! println {
 
 #[doc(hidden)]
 pub fn _print(args: Arguments) {
-    FRAMEBUFFER.lock().write_fmt(args).unwrap();
+    FRAMEBUFFER
+        .lock()
+        .write_fmt(args)
+        .expect("failed to write FRAMEBUFFER");
 }
 
 #[derive(Default)]
@@ -59,7 +62,7 @@ pub struct FrameBuffer {
 
 impl FrameBuffer {
     pub fn new(framebuffer: &'static mut Optional<info::FrameBuffer>) -> FrameBuffer {
-        let framebuffer = framebuffer.as_mut().unwrap();
+        let framebuffer = framebuffer.as_mut().expect("failed to write FRAMEBUFFER");
         let info = framebuffer.info();
         let buffer = Some(framebuffer.buffer_mut());
         let FrameBufferInfo {
