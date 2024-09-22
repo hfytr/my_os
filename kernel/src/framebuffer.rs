@@ -1,9 +1,12 @@
 use bootloader_api::info::{self, FrameBufferInfo, Optional};
 use bytemuck::{from_bytes, from_bytes_mut, Pod, Zeroable};
-use core::fmt;
+use core::fmt::{self, Arguments, Write};
 use core::ops::{Index, IndexMut};
+use spin::Mutex;
 
 use crate::font::{FONT, FONT_DIM};
+
+pub static FRAMEBUFFER: Mutex<FrameBuffer> = Mutex::new(FrameBuffer::const_default());
 
 const BLACK: Pixel = Pixel {
     b: 0x00,
@@ -28,20 +31,37 @@ pub struct Pixel {
     pub alpha: u8,
 }
 
-pub struct FrameBuffer<'a> {
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::framebuffer::_print(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! println {
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
+
+#[doc(hidden)]
+pub fn _print(args: Arguments) {
+    FRAMEBUFFER.lock().write_fmt(args).unwrap();
+}
+
+#[derive(Default)]
+pub struct FrameBuffer {
     pixel_dim: (usize, usize),
     term_dim: (usize, usize),
     stride: usize,
     bbp: usize,
     pos: (usize, usize),
-    buffer: &'a mut [u8],
+    buffer: Option<&'static mut [u8]>,
 }
 
-impl<'a> FrameBuffer<'a> {
-    pub fn new(framebuffer: &'a mut Optional<info::FrameBuffer>) -> FrameBuffer<'a> {
+impl FrameBuffer {
+    pub fn new(framebuffer: &'static mut Optional<info::FrameBuffer>) -> FrameBuffer {
         let framebuffer = framebuffer.as_mut().unwrap();
         let info = framebuffer.info();
-        let buffer = framebuffer.buffer_mut();
+        let buffer = Some(framebuffer.buffer_mut());
         let FrameBufferInfo {
             width,
             height,
@@ -66,6 +86,17 @@ impl<'a> FrameBuffer<'a> {
         }
 
         framebuffer
+    }
+
+    pub const fn const_default() -> FrameBuffer {
+        FrameBuffer {
+            pixel_dim: (0, 0),
+            term_dim: (0, 0),
+            stride: 0,
+            bbp: 0,
+            pos: (0, 0),
+            buffer: None,
+        }
     }
 
     pub fn write_str(&mut self, bytes: &[u8]) {
@@ -102,24 +133,24 @@ impl<'a> FrameBuffer<'a> {
     }
 }
 
-impl<'a> fmt::Write for FrameBuffer<'a> {
+impl Write for FrameBuffer {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.write_str(s.as_bytes());
         Ok(())
     }
 }
 
-impl<'a> Index<(usize, usize)> for FrameBuffer<'a> {
+impl Index<(usize, usize)> for FrameBuffer {
     type Output = Pixel;
     fn index(&self, (x, y): (usize, usize)) -> &Pixel {
         let pixel_index = (y * self.stride + x) * self.bbp;
-        from_bytes(&self.buffer[pixel_index..pixel_index + 4])
+        from_bytes(&self.buffer.as_ref().unwrap()[pixel_index..pixel_index + 4])
     }
 }
 
-impl<'a> IndexMut<(usize, usize)> for FrameBuffer<'a> {
+impl IndexMut<(usize, usize)> for FrameBuffer {
     fn index_mut(&mut self, (x, y): (usize, usize)) -> &mut Pixel {
         let pixel_index = (y * self.stride + x) * self.bbp;
-        from_bytes_mut(&mut self.buffer[pixel_index..pixel_index + 4])
+        from_bytes_mut(&mut self.buffer.as_mut().unwrap()[pixel_index..pixel_index + 4])
     }
 }

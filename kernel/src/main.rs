@@ -5,18 +5,18 @@ mod font;
 mod framebuffer;
 
 use bootloader_api::{entry_point, info::BootInfo};
-use core::fmt::Write;
 use core::panic::PanicInfo;
-use framebuffer::FrameBuffer;
+use framebuffer::{FrameBuffer, FRAMEBUFFER};
 
 entry_point!(kernel_main);
 fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
-    let mut framebuffer = FrameBuffer::new(&mut boot_info.framebuffer);
-    write!(framebuffer, "hello: {}", 11).unwrap();
+    *FRAMEBUFFER.lock() = FrameBuffer::new(&mut boot_info.framebuffer);
+    println!("HELLO WORLD!");
     loop {}
 }
 
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
+    println!("{}", info);
     loop {}
 }
