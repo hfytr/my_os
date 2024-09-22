@@ -1,6 +1,5 @@
 // yes i put the entire font in ram. deal with it
-pub const FONT_WIDTH: u8 = 8;
-pub const FONT_HEIGHT: u8 = 16;
+pub const FONT_DIM: (u8, u8) = (8, 16);
 pub const FONT: [u128; 256] = [
     0xe7e7ffe7e7cf9999c37e00000840206c,
     0xc36666666667fe00000000000000007e,
