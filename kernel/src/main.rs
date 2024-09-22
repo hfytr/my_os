@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 
+mod font;
 mod framebuffer;
 
 use bootloader_api::{entry_point, info::BootInfo};
@@ -21,6 +22,8 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
             };
         }
     }
+
+    framebuffer.write_str(b"HELLO WORLD!!");
 
     loop {}
 }
