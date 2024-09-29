@@ -14,6 +14,7 @@ static PICS: Mutex<ChainedPics> = Mutex::new(unsafe { ChainedPics::new(PIC1_OFFS
 #[repr(u8)]
 pub enum InterruptIndex {
     Timer = PIC1_OFFSET,
+    Keyboard,
 }
 
 pub fn init_idt() {
@@ -25,13 +26,26 @@ pub fn init_idt() {
                 .set_handler_fn(double_handler)
                 .set_stack_index(DOUBLE_FAULT_1ST_INDEX);
         }
+        idt[InterruptIndex::Timer as u8].set_handler_fn(timer_handler);
+        idt[InterruptIndex::Keyboard as u8].set_handler_fn(keyboard_interrupt);
         idt
     });
     IDT.get().expect("failed to get IDT").load();
     unsafe {
-        PICS.lock().initialize();
+        let mut pics = PICS.lock();
+        pics.initialize();
+        pics.write_masks(0xfc, 0xff);
     }
     interrupts::enable();
+    println!(
+        "{}",
+        PICS.lock()
+            .handles_interrupt(InterruptIndex::Keyboard as u8)
+    );
+    println!(
+        "{}",
+        PICS.lock().handles_interrupt(InterruptIndex::Timer as u8)
+    );
 }
 
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
@@ -44,9 +58,16 @@ extern "x86-interrupt" fn double_handler(stack_frame: InterruptStackFrame, _erro
 }
 
 extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
-    print!(".");
     unsafe {
         PICS.lock()
             .notify_end_of_interrupt(InterruptIndex::Timer as u8);
+    }
+}
+
+extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFrame) {
+    println!("hi");
+    unsafe {
+        PICS.lock()
+            .notify_end_of_interrupt(InterruptIndex::Keyboard as u8);
     }
 }

@@ -11,19 +11,19 @@ mod gdt;
 mod interrupt;
 mod serial;
 
-use bootloader_api::{entry_point, info::BootInfo};
+use bootloader_api::info::BootInfo;
 use core::panic::PanicInfo;
 use framebuffer::{FrameBuffer, FRAMEBUFFER};
 use gdt::init_gdt;
 use interrupt::init_idt;
 use serial::SERIAL1;
-use x86_64::instructions::port::Port;
+use x86_64::instructions::{self, port::Port};
 
 pub fn init(boot_info: &'static mut BootInfo) {
     *FRAMEBUFFER.lock() = FrameBuffer::new(&mut boot_info.framebuffer);
     SERIAL1.lock().init();
-    init_idt();
     init_gdt();
+    init_idt();
 }
 
 pub fn test_runner(tests: &[&dyn Testable]) {
@@ -37,7 +37,9 @@ pub fn panic_test(info: &PanicInfo) -> ! {
     serial_println!("[failed]");
     serial_println!("info: {}", info);
     exit_qemu(QemuExitCode::Failed);
-    loop {}
+    loop {
+        instructions::hlt();
+    }
 }
 
 #[cfg(test)]

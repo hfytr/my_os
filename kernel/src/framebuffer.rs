@@ -3,6 +3,7 @@ use bytemuck::{from_bytes, from_bytes_mut, Pod, Zeroable};
 use core::fmt::{self, Arguments, Write};
 use core::ops::{Index, IndexMut};
 use spin::Mutex;
+use x86_64::instructions::interrupts;
 
 use crate::font::{FONT, FONT_DIM};
 
@@ -15,10 +16,10 @@ const BLACK: Pixel = Pixel {
     alpha: 0x00,
 };
 
-const WHITE: Pixel = Pixel {
-    b: 0xff,
+const GREEN: Pixel = Pixel {
+    b: 0x00,
     g: 0xff,
-    r: 0xff,
+    r: 0x00,
     alpha: 0x00,
 };
 
@@ -44,10 +45,12 @@ macro_rules! println {
 
 #[doc(hidden)]
 pub fn _print(args: Arguments) {
-    FRAMEBUFFER
-        .lock()
-        .write_fmt(args)
-        .expect("failed to write FRAMEBUFFER");
+    interrupts::without_interrupts(|| {
+        FRAMEBUFFER
+            .lock()
+            .write_fmt(args)
+            .expect("failed to write FRAMEBUFFER")
+    });
 }
 
 #[derive(Default)]
@@ -127,7 +130,7 @@ impl FrameBuffer {
                     self.pos.1 * FONT_DIM.1 as usize + j,
                 );
                 self[index] = if FONT[byte as usize] & 1 << (j * FONT_DIM.0 as usize + i) > 0 {
-                    WHITE
+                    GREEN
                 } else {
                     BLACK
                 }

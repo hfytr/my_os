@@ -15,7 +15,9 @@ fn _read_psf1(path: &str) -> String {
     );
 
     let mut glyphs = Vec::new();
-    let glyphs_iter = bytes.chunks(glyph_size as usize).take(num_glyphs as usize);
+    let glyphs_iter = bytes[4..]
+        .chunks(glyph_size as usize)
+        .take(num_glyphs as usize);
     for glyph in glyphs_iter {
         glyphs.push(format!(
             "0x{}",
@@ -26,7 +28,25 @@ fn _read_psf1(path: &str) -> String {
                 .collect::<Vec<String>>()
                 .join("")
         ));
+
+        // print out the font in ascii
+        for (i, byte) in glyph.iter().enumerate() {
+            println!(
+                "{}",
+                String::from_iter(format!("{:08b}", byte).as_bytes().into_iter().map(|&c| {
+                    if c == b'0' {
+                        " "
+                    } else {
+                        "&"
+                    }
+                }))
+            );
+            if i % 16 == 15 {
+                println!("------------------");
+            }
+        }
     }
+
     // ik its not alway u128
     format!(
         "pub const FONT: [u128; {}] = [{}];",
