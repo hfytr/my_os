@@ -19,6 +19,7 @@
       in {
         RUST_BACKTRACE = 1;
         devShells.default = with pkgs; mkShell {
+          packages = [ pkgs.lldb ];
           buildInputs = [
             cargo-bootimage
             fish

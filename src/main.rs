@@ -63,13 +63,29 @@ fn main() {
 
     let mut cmd = std::process::Command::new("qemu-system-x86_64");
     if uefi {
+        println!("{}", uefi_path);
         cmd.arg("-bios").arg(ovmf_prebuilt::ovmf_pure_efi());
         cmd.arg("-drive")
             .arg(format!("format=raw,file={uefi_path}"));
     } else {
+        println!("{}", bios_path);
         cmd.arg("-drive")
             .arg(format!("format=raw,file={bios_path}"));
     }
+    cmd.args(["-s", "-S"]);
+    // 0x8000005ec0
+    // add-symbol-file target/x86_64-unknown-none/debug/deps/artifact/kernel-d051de5109deb413/bin/kernel-d051de5109deb413 -o 0x8000005ec0
+
+    const KERNEL_BINARY: &str = "target/x86_64-unknown-none/debug/deps/artifact/kernel-d051de5109deb413/bin/kernel-d051de5109deb413";
+    let content = format!(
+        r#"target create {KERNEL_BINARY}
+target modules load --file {KERNEL_BINARY} --slide 0x8000005ec0
+gdb-remote localhost:1234
+b _start
+c"#
+    );
+    std::fs::write("debug.lldb", content).expect("unable to create debug file");
+
     let mut child = cmd.spawn().unwrap();
     child.wait().unwrap();
 }

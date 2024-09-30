@@ -53,14 +53,15 @@ pub fn _print(args: Arguments) {
     });
 }
 
-#[derive(Default)]
 pub struct FrameBuffer {
     pixel_dim: (usize, usize),
-    term_dim: (usize, usize),
+    pub term_dim: (usize, usize),
     stride: usize,
     bbp: usize,
     pos: (usize, usize),
     buffer: Option<&'static mut [u8]>,
+    lines: [[u8; 256]; 64],
+    last_line: usize,
 }
 
 impl FrameBuffer {
@@ -83,6 +84,8 @@ impl FrameBuffer {
             bbp,
             pos: (0, 0),
             buffer,
+            lines: [[b' '; 256]; 64],
+            last_line: 0,
         };
 
         for x in 0..framebuffer.pixel_dim.0 {
@@ -102,6 +105,8 @@ impl FrameBuffer {
             bbp: 0,
             pos: (0, 0),
             buffer: None,
+            lines: [[b' '; 256]; 64],
+            last_line: 0,
         }
     }
 
@@ -109,26 +114,48 @@ impl FrameBuffer {
         for &byte in bytes {
             match byte {
                 b'\n' => {
-                    if self.pos.1 < self.term_dim.1 {
+                    if self.pos.1 < self.term_dim.1 - 1 {
+                        for i in self.pos.0..self.term_dim.0 {
+                            self.lines[self.last_line as usize][i as usize] = b' ';
+                        }
                         self.pos.1 += 1;
                         self.pos.0 = 0;
+                        self.last_line = (self.last_line + 1) % self.term_dim.1;
+                    } else {
+                        self.last_line = (self.last_line + 1) % self.term_dim.1;
+                        for i in 0..self.lines[0].len() {
+                            self.lines[self.last_line + 2][i] = b' ';
+                        }
+                        for (y, line) in (0..self.lines.len())
+                            .cycle()
+                            .skip(self.last_line - 1)
+                            .take(self.term_dim.1)
+                            .enumerate()
+                        {
+                            for (x, c) in self.lines[line].into_iter().enumerate() {
+                                self.render_char(c, Some((x, y)));
+                            }
+                        }
                     }
                 }
                 _ => {
-                    self.render_char(byte);
-                    self.pos.0 = (self.pos.0 + 1).min(self.term_dim.0 - 1)
+                    self.render_char(byte, None);
+                    self.lines[self.pos.1][self.pos.0] = byte;
+                    self.pos.0 = (self.pos.0 + 1).min(self.term_dim.0 - 1);
+                    if self.pos.0 == self.term_dim.0 - 1 {
+                        self.pos.0 = 0;
+                        self.pos.1 += 1;
+                    }
                 }
             }
         }
     }
 
-    fn render_char(&mut self, byte: u8) {
+    fn render_char(&mut self, byte: u8, pos: Option<(usize, usize)>) {
+        let (x, y) = pos.unwrap_or(self.pos);
         for i in 0..FONT_DIM.0 as usize {
             for j in 0..FONT_DIM.1 as usize {
-                let index = (
-                    self.pos.0 * FONT_DIM.0 as usize + i,
-                    self.pos.1 * FONT_DIM.1 as usize + j,
-                );
+                let index = (x * FONT_DIM.0 as usize + i, y * FONT_DIM.1 as usize + j);
                 self[index] = if FONT[byte as usize] & 1 << (j * FONT_DIM.0 as usize + i) > 0 {
                     GREEN
                 } else {

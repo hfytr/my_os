@@ -26,6 +26,7 @@ pub fn init_idt() {
                 .set_handler_fn(double_handler)
                 .set_stack_index(DOUBLE_FAULT_1ST_INDEX);
         }
+        idt.general_protection_fault.set_handler_fn(general_handler);
         idt[InterruptIndex::Timer as u8].set_handler_fn(timer_handler);
         idt[InterruptIndex::Keyboard as u8].set_handler_fn(keyboard_interrupt);
         idt
@@ -34,17 +35,16 @@ pub fn init_idt() {
     unsafe {
         let mut pics = PICS.lock();
         pics.initialize();
-        pics.write_masks(0xfc, 0xff);
+        // only handle timer interrupts
+        pics.write_masks(0b1111_1110, 0b1111_1111);
     }
     interrupts::enable();
+}
+
+extern "x86-interrupt" fn general_handler(stack_frame: InterruptStackFrame, error_code: u64) {
     println!(
-        "{}",
-        PICS.lock()
-            .handles_interrupt(InterruptIndex::Keyboard as u8)
-    );
-    println!(
-        "{}",
-        PICS.lock().handles_interrupt(InterruptIndex::Timer as u8)
+        "EXCEPTION: GENERAL_PROTECTION({})\n{:#?}",
+        error_code, stack_frame
     );
 }
 
@@ -53,19 +53,19 @@ extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) {
 }
 
 extern "x86-interrupt" fn double_handler(stack_frame: InterruptStackFrame, _error_code: u64) -> ! {
-    println!("EXCEPTION: DOUBLE FAULT\n{:#?}", stack_frame);
+    println!("EXCEPTION: DOUBLE FAULT:{:#?}", stack_frame);
     loop {}
 }
 
 extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
+    print!(".");
     unsafe {
         PICS.lock()
-            .notify_end_of_interrupt(InterruptIndex::Timer as u8);
+            .notify_end_of_interrupt(InterruptIndex::Timer as u8)
     }
 }
 
 extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFrame) {
-    println!("hi");
     unsafe {
         PICS.lock()
             .notify_end_of_interrupt(InterruptIndex::Keyboard as u8);

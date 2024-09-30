@@ -7,7 +7,7 @@
 
 use bootloader_api::{entry_point, info::BootInfo};
 use core::panic::PanicInfo;
-use kernel::{init, println};
+use kernel::{framebuffer::FRAMEBUFFER, init, print, println};
 use x86_64::instructions;
 
 #[cfg(not(test))]
@@ -18,9 +18,7 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     #[cfg(test)]
     test_main();
 
-    loop {
-        instructions::hlt();
-    }
+    loop {}
 }
 
 #[cfg(not(test))]
@@ -31,19 +29,3 @@ fn panic(info: &PanicInfo) -> ! {
         instructions::hlt();
     }
 }
-
-/*
-InterruptStackFrame {
-    instruction_pointer: VirtAddr(0x8000009a7f),
-    code_segment: SegmentSelector {
-        index: 1,
-        rpl: Ring0,
-    },
-    cpu_flags: RFlags(PARITY_FLAG | 0x2),
-    stack_pointer: VirtAddr(0x10000014f98),
-    stack_segment: SegmentSelector {
-        index: 2,
-        rpl: Ring0,
-    },
-}
-*/
