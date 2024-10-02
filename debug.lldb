@@ -1,5 +1,3 @@
-target create target/x86_64-unknown-none/debug/deps/artifact/kernel-d051de5109deb413/bin/kernel-d051de5109deb413
-target modules load --file target/x86_64-unknown-none/debug/deps/artifact/kernel-d051de5109deb413/bin/kernel-d051de5109deb413 --slide 0x8000005ec0
-gdb-remote localhost:1234
-b _start
-c
+target create /home/fbwdw/docs/os/target/x86_64-unknown-none/debug/deps/artifact/kernel-d051de5109deb413/bin/kernel-d051de5109deb413
+            target modules load --file /home/fbwdw/docs/os/target/x86_64-unknown-none/debug/deps/artifact/kernel-d051de5109deb413/bin/kernel-d051de5109deb413 --slide 0xffff800000000000
+            gdb-remote localhost:1234

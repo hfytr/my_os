@@ -1,3 +1,5 @@
+use crate::interrupt::{pop_call_stack, push_call_stack};
+use crate::print;
 use spin::Once;
 use x86_64::instructions::{
     segmentation::{Segment, CS},
@@ -19,6 +21,7 @@ struct Selectors {
 }
 
 pub fn init_gdt() {
+    push_call_stack(0);
     TSS.call_once(|| {
         let mut tss = TaskStateSegment::new();
         const STACK_SIZE: usize = 0x5000;
@@ -48,4 +51,6 @@ pub fn init_gdt() {
         CS::set_reg(GDT.get().unwrap().1.code_selector);
         load_tss(GDT.get().unwrap().1.tss_selector);
     }
+    print!("hi");
+    pop_call_stack();
 }

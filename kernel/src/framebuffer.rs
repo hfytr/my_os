@@ -1,3 +1,4 @@
+use crate::interrupt::{pop_call_stack, push_call_stack};
 use bootloader_api::info::{self, FrameBufferInfo, Optional};
 use bytemuck::{from_bytes, from_bytes_mut, Pod, Zeroable};
 use core::fmt::{self, Arguments, Write};
@@ -9,14 +10,14 @@ use crate::font::{FONT, FONT_DIM};
 
 pub static FRAMEBUFFER: Mutex<FrameBuffer> = Mutex::new(FrameBuffer::const_default());
 
-const BLACK: Pixel = Pixel {
+pub const BLACK: Pixel = Pixel {
     b: 0x00,
     g: 0x00,
     r: 0x00,
     alpha: 0x00,
 };
 
-const GREEN: Pixel = Pixel {
+pub const GREEN: Pixel = Pixel {
     b: 0x00,
     g: 0xff,
     r: 0x00,
@@ -45,12 +46,10 @@ macro_rules! println {
 
 #[doc(hidden)]
 pub fn _print(args: Arguments) {
-    interrupts::without_interrupts(|| {
-        FRAMEBUFFER
-            .lock()
-            .write_fmt(args)
-            .expect("failed to write FRAMEBUFFER")
-    });
+    FRAMEBUFFER
+        .lock()
+        .write_fmt(args)
+        .expect("failed to write FRAMEBUFFER")
 }
 
 pub struct FrameBuffer {
@@ -77,7 +76,7 @@ impl FrameBuffer {
             ..
         } = info;
 
-        let mut framebuffer = Self {
+        Self {
             pixel_dim: (width, height),
             term_dim: (width / FONT_DIM.0 as usize, height / FONT_DIM.1 as usize),
             stride,
@@ -86,15 +85,27 @@ impl FrameBuffer {
             buffer,
             lines: [[b' '; 256]; 64],
             last_line: 0,
-        };
+        }
+    }
 
-        for x in 0..framebuffer.pixel_dim.0 {
-            for y in 0..framebuffer.pixel_dim.1 {
-                framebuffer[(x, y)] = BLACK;
+    pub fn fill(&mut self, color: Pixel) {
+        for x in 0..self.pixel_dim.0 {
+            for y in 0..self.pixel_dim.1 {
+                if x == self.pixel_dim.0 - 1 {
+                    self.render_char(y as u8 - b'0', Some((0, 0)));
+                }
+                if x == self.pixel_dim.0 - 1 && y == self.pixel_dim.1 - 1 {
+                    self.write_fmt(format_args!("{y}")).unwrap();
+                }
+                self[(x, y)] = color;
+                if x == self.pixel_dim.0 - 1 && y == self.pixel_dim.1 - 1 {
+                    self.write_fmt(format_args!("{y}")).unwrap();
+                }
+            }
+            if x == self.pixel_dim.0 - 1 {
+                self.write_fmt(format_args!("{x}")).unwrap();
             }
         }
-
-        framebuffer
     }
 
     pub const fn const_default() -> FrameBuffer {
@@ -149,6 +160,7 @@ impl FrameBuffer {
                 }
             }
         }
+        pop_call_stack();
     }
 
     fn render_char(&mut self, byte: u8, pos: Option<(usize, usize)>) {

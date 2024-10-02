@@ -8,19 +8,27 @@
 mod font;
 pub mod framebuffer;
 mod gdt;
-mod interrupt;
+pub mod interrupt;
 mod serial;
 
-use bootloader_api::info::BootInfo;
+use bootloader_api::{info::BootInfo, BootloaderConfig};
 use core::panic::PanicInfo;
-use framebuffer::{FrameBuffer, FRAMEBUFFER};
+use framebuffer::{FrameBuffer, BLACK, FRAMEBUFFER};
 use gdt::init_gdt;
 use interrupt::init_idt;
 use serial::SERIAL1;
 use x86_64::instructions::{self, port::Port};
 
+pub const fn bootloader_config() -> BootloaderConfig {
+    let mut config = BootloaderConfig::new_default();
+    config.mappings.dynamic_range_start = Some(0xffff_8000_0000_0000);
+    config.mappings.dynamic_range_end = Some(0xffff_ffff_ffff_ffff);
+    config
+}
+
 pub fn init(boot_info: &'static mut BootInfo) {
     *FRAMEBUFFER.lock() = FrameBuffer::new(&mut boot_info.framebuffer);
+    FRAMEBUFFER.lock().fill(BLACK);
     SERIAL1.lock().init();
     init_gdt();
     init_idt();

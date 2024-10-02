@@ -1,4 +1,10 @@
+use std::env;
 use std::fs::read;
+
+pub const UEFI_PATH: &str = env!("UEFI_PATH");
+pub const BIOS_PATH: &str = env!("BIOS_PATH");
+pub const KERNEL_BINARY: &str = env!("KERNEL_BINARY");
+//pub const OS_DISK: &str = env!("OS_DISK");
 
 fn _read_psf1(path: &str) -> String {
     let bytes = read(path).unwrap();
@@ -59,33 +65,44 @@ fn main() {
     let uefi_path = env!("UEFI_PATH");
     let bios_path = env!("BIOS_PATH");
 
-    let uefi = true;
-
-    let mut cmd = std::process::Command::new("qemu-system-x86_64");
-    if uefi {
-        println!("{}", uefi_path);
-        cmd.arg("-bios").arg(ovmf_prebuilt::ovmf_pure_efi());
-        cmd.arg("-drive")
+    let args = env::args().collect::<Vec<_>>();
+    let mut qemu_cmd = std::process::Command::new("qemu-system-x86_64");
+    if args.contains(&String::from("-u")) {
+        println!("UEFI: {}", uefi_path);
+        qemu_cmd.arg("-bios").arg(ovmf_prebuilt::ovmf_pure_efi());
+        qemu_cmd
+            .arg("-drive")
             .arg(format!("format=raw,file={uefi_path}"));
-    } else {
-        println!("{}", bios_path);
-        cmd.arg("-drive")
+    } else if args.contains(&String::from("-b")) {
+        println!("BIOS: {}", bios_path);
+        qemu_cmd
+            .arg("-drive")
             .arg(format!("format=raw,file={bios_path}"));
+    } else {
+        panic!("specify -b for bios or -u for uefi")
+    };
+
+    if args.contains(&String::from("-d")) {
+        println!("generating debug.lldb");
+        qemu_cmd.args(["-s", "-S"]);
+
+        let lldb_content = format!(
+            r#"target create {KERNEL_BINARY}
+            target modules load --file {KERNEL_BINARY} --slide 0xffff800000000000
+            gdb-remote localhost:1234"#
+        );
+        std::fs::write("debug.lldb", lldb_content).expect("unable to create lldb debug file");
+
+        let mut lldb_cmd = std::process::Command::new("lldb");
+        lldb_cmd.args(["-s", "debug.lldb"]);
+
+        // make sure to spawn qemu first
+        let mut qemu_process = qemu_cmd.spawn().unwrap();
+        let mut lldb_process = lldb_cmd.spawn().unwrap();
+        lldb_process.wait().unwrap();
+        qemu_process.wait().unwrap();
+    } else {
+        let mut child = qemu_cmd.spawn().unwrap();
+        child.wait().unwrap();
     }
-    cmd.args(["-s", "-S"]);
-    // 0x8000005ec0
-    // add-symbol-file target/x86_64-unknown-none/debug/deps/artifact/kernel-d051de5109deb413/bin/kernel-d051de5109deb413 -o 0x8000005ec0
-
-    const KERNEL_BINARY: &str = "target/x86_64-unknown-none/debug/deps/artifact/kernel-d051de5109deb413/bin/kernel-d051de5109deb413";
-    let content = format!(
-        r#"target create {KERNEL_BINARY}
-target modules load --file {KERNEL_BINARY} --slide 0x8000005ec0
-gdb-remote localhost:1234
-b _start
-c"#
-    );
-    std::fs::write("debug.lldb", content).expect("unable to create debug file");
-
-    let mut child = cmd.spawn().unwrap();
-    child.wait().unwrap();
 }
