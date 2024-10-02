@@ -4,7 +4,6 @@ use std::fs::read;
 pub const UEFI_PATH: &str = env!("UEFI_PATH");
 pub const BIOS_PATH: &str = env!("BIOS_PATH");
 pub const KERNEL_BINARY: &str = env!("KERNEL_BINARY");
-//pub const OS_DISK: &str = env!("OS_DISK");
 
 fn _read_psf1(path: &str) -> String {
     let bytes = read(path).unwrap();

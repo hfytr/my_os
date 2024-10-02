@@ -14,14 +14,12 @@ pub const BLACK: Pixel = Pixel {
     b: 0x00,
     g: 0x00,
     r: 0x00,
-    alpha: 0x00,
 };
 
 pub const GREEN: Pixel = Pixel {
     b: 0x00,
     g: 0xff,
     r: 0x00,
-    alpha: 0x00,
 };
 
 #[derive(Zeroable, Pod, Clone, Copy)]
@@ -30,7 +28,6 @@ pub struct Pixel {
     pub b: u8,
     pub g: u8,
     pub r: u8,
-    pub alpha: u8,
 }
 
 #[macro_export]
@@ -91,19 +88,7 @@ impl FrameBuffer {
     pub fn fill(&mut self, color: Pixel) {
         for x in 0..self.pixel_dim.0 {
             for y in 0..self.pixel_dim.1 {
-                if x == self.pixel_dim.0 - 1 {
-                    self.render_char(y as u8 - b'0', Some((0, 0)));
-                }
-                if x == self.pixel_dim.0 - 1 && y == self.pixel_dim.1 - 1 {
-                    self.write_fmt(format_args!("{y}")).unwrap();
-                }
                 self[(x, y)] = color;
-                if x == self.pixel_dim.0 - 1 && y == self.pixel_dim.1 - 1 {
-                    self.write_fmt(format_args!("{y}")).unwrap();
-                }
-            }
-            if x == self.pixel_dim.0 - 1 {
-                self.write_fmt(format_args!("{x}")).unwrap();
             }
         }
     }
@@ -160,7 +145,6 @@ impl FrameBuffer {
                 }
             }
         }
-        pop_call_stack();
     }
 
     fn render_char(&mut self, byte: u8, pos: Option<(usize, usize)>) {
@@ -189,13 +173,13 @@ impl Index<(usize, usize)> for FrameBuffer {
     type Output = Pixel;
     fn index(&self, (x, y): (usize, usize)) -> &Pixel {
         let pixel_index = (y * self.stride + x) * self.bbp;
-        from_bytes(&self.buffer.as_ref().unwrap()[pixel_index..pixel_index + 4])
+        from_bytes(&self.buffer.as_ref().unwrap()[pixel_index..pixel_index + 3])
     }
 }
 
 impl IndexMut<(usize, usize)> for FrameBuffer {
     fn index_mut(&mut self, (x, y): (usize, usize)) -> &mut Pixel {
         let pixel_index = (y * self.stride + x) * self.bbp;
-        from_bytes_mut(&mut self.buffer.as_mut().unwrap()[pixel_index..pixel_index + 4])
+        from_bytes_mut(&mut self.buffer.as_mut().unwrap()[pixel_index..pixel_index + 3])
     }
 }

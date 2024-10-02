@@ -51,6 +51,5 @@ pub fn init_gdt() {
         CS::set_reg(GDT.get().unwrap().1.code_selector);
         load_tss(GDT.get().unwrap().1.tss_selector);
     }
-    print!("hi");
     pop_call_stack();
 }
