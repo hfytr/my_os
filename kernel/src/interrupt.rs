@@ -7,20 +7,8 @@ use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 const PIC1_OFFSET: u8 = 32;
 const PIC2_OFFSET: u8 = PIC1_OFFSET + 8;
-pub static CALL_STACK: Mutex<(u8, [u8; 256])> = Mutex::new((0, [0; 256]));
 static IDT: Once<InterruptDescriptorTable> = Once::new();
 static PICS: Mutex<ChainedPics> = Mutex::new(unsafe { ChainedPics::new(PIC1_OFFSET, PIC2_OFFSET) });
-
-pub fn push_call_stack(fn_name: u8) {
-    let mut call_stack = CALL_STACK.lock();
-    let stack_size = call_stack.0;
-    call_stack.1[stack_size as usize] = fn_name;
-    call_stack.0 += 1;
-}
-
-pub fn pop_call_stack() {
-    CALL_STACK.lock().0 -= 1;
-}
 
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
@@ -30,7 +18,6 @@ pub enum InterruptIndex {
 }
 
 pub fn init_idt() {
-    push_call_stack(1);
     IDT.call_once(|| {
         let mut idt = InterruptDescriptorTable::new();
         idt.breakpoint.set_handler_fn(breakpoint_handler);
@@ -52,7 +39,6 @@ pub fn init_idt() {
         pics.write_masks(0b1111_1110, 0b1111_1111);
     }
     interrupts::enable();
-    pop_call_stack();
 }
 
 extern "x86-interrupt" fn general_handler(stack_frame: InterruptStackFrame, error_code: u64) {
